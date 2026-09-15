@@ -1,0 +1,78 @@
+name: Sync and clean upstream
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+
+      - name: Import and clean upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/upstream
+          git clone --depth 1 https://github.com/233boy/sing-box.git /tmp/upstream
+
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/upstream/. .
+
+          # Remove this bootstrap workflow after the import has completed.
+          rm -f .github/workflows/sync-and-clean.yml
+
+          # Keep GPLv3 and legally required notices intact. Mark this repository
+          # as a modified derivative as required by GPLv3 section 5.
+          if [[ -f README.md ]]; then
+            printf '%s\n\n%s\n' '# sing-box' '> This repository is a modified derivative of the upstream project. Local modifications include branding and repository-link cleanup. Modified 2026-09-15.' "$(cat README.md)" > /tmp/README.new
+            mv /tmp/README.new README.md
+          fi
+
+          # Clean upstream branding and replace self-update repository references
+          # with this repository where the script needs a functional update path.
+          find . -type f -not -path './.git/*' -print0 | while IFS= read -r -d '' f; do
+            if grep -Iq . "$f" 2>/dev/null; then
+              sed -i \
+                -e 's#https://github.com/233boy/sing-box#https://github.com/espinosacenterfold-rgb/sing-box#g' \
+                -e 's#https://github.com/${is_sh_repo}/issues#https://github.com/espinosacenterfold-rgb/sing-box/issues#g' \
+                -e 's#https://233boy.com/[^[:space:]"'"'<>)]*#https://github.com/espinosacenterfold-rgb/sing-box#g' \
+                -e 's#https://t.me/tg2333##g' \
+                -e 's#tg2333##g' \
+                -e 's#233boy\.github\.io##g' \
+                -e 's/#233boy-/#/g' \
+                -e 's/by 233boy/by local build/g' \
+                -e 's/author=233boy/author=local-build/g' \
+                -e 's/is_socks_user=233boy/is_socks_user=singbox/g' \
+                -e 's/233boy\.com/example.com/g' \
+                -e 's/233boy/upstream/g' \
+                "$f"
+            fi
+          done
+
+          # Ensure the script updates/releases from this repository.
+          if [[ -f install.sh ]]; then
+            sed -i 's#is_sh_repo=\$author/\$is_core#is_sh_repo=espinosacenterfold-rgb/\$is_core#' install.sh
+          fi
+          if [[ -f src/init.sh ]]; then
+            sed -i 's#author=upstream#author=local-build#; s#github=https://github.com/upstream/sing-box#github=https://github.com/espinosacenterfold-rgb/sing-box#' src/init.sh
+          fi
+
+          # Remove any remaining explicit upstream identity strings from text files.
+          if grep -RIn --exclude-dir=.git -E '233boy|233boy\.com|tg2333' .; then
+            echo 'Upstream branding remains; aborting.'
+            exit 1
+          fi
+
+          git config user.name 'espinosacenterfold-rgb'
+          git config user.email 'espinosacenterfold@gmail.com'
+          git add -A
+          git commit -m 'Import upstream and clean branding' || exit 0
+          git push origin main
