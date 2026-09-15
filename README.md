@@ -33,7 +33,7 @@
 
 设计理念为：**高效率，超快速，极易用**
 
-脚本基于作者的自身使用需求，以 **多配置同时运行** 为核心设计
+脚本基于实际使用需求，以 **多配置同时运行** 为核心设计
 
 并且专门优化了，添加、更改、查看、删除、这四项常用功能
 
@@ -45,7 +45,7 @@
 
 # 文档
 
-安装及使用：https://github.com/espinosacenterfold-rgb/sing-boxsing-box/sing-box-script/
+安装及使用：https://github.com/espinosacenterfold-rgb/sing-box
 
 # 帮助
 
@@ -113,5 +113,5 @@ Usage: sing-box [options]... [args]...
 
 谨慎使用 del, ddel, 此选项会直接删除配置; 无需确认
 反馈问题) https://github.com/espinosacenterfold-rgb/sing-box/issues
-文档(doc) https://github.com/espinosacenterfold-rgb/sing-boxsing-box/sing-box-script/
+文档(doc) https://github.com/espinosacenterfold-rgb/sing-box
 ```
