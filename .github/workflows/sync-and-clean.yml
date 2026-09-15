@@ -23,8 +23,9 @@ jobs:
           rm -rf /tmp/upstream
           git clone --depth 1 https://github.com/233boy/sing-box.git /tmp/upstream
 
+          # Preserve the target repository's .git directory and credentials.
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a /tmp/upstream/. .
+          rsync -a --exclude='.git' /tmp/upstream/ ./
           rm -f .github/workflows/sync-and-clean.yml
 
           python3 - <<'PY'
@@ -60,7 +61,6 @@ jobs:
               if text != original:
                   path.write_text(text, encoding='utf-8')
 
-          # Make the installer and self-update path point at this repository.
           p = Path('install.sh')
           if p.exists():
               text = p.read_text(encoding='utf-8')
