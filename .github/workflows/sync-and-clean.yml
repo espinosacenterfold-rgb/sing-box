@@ -25,54 +25,71 @@ jobs:
 
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a /tmp/upstream/. .
-
-          # Remove this bootstrap workflow after the import has completed.
           rm -f .github/workflows/sync-and-clean.yml
 
-          # Keep GPLv3 and legally required notices intact. Mark this repository
-          # as a modified derivative as required by GPLv3 section 5.
-          if [[ -f README.md ]]; then
-            printf '%s\n\n%s\n' '# sing-box' '> This repository is a modified derivative of the upstream project. Local modifications include branding and repository-link cleanup. Modified 2026-09-15.' "$(cat README.md)" > /tmp/README.new
-            mv /tmp/README.new README.md
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-          # Clean upstream branding and replace self-update repository references
-          # with this repository where the script needs a functional update path.
-          find . -type f -not -path './.git/*' -print0 | while IFS= read -r -d '' f; do
-            if grep -Iq . "$f" 2>/dev/null; then
-              sed -i \
-                -e 's#https://github.com/233boy/sing-box#https://github.com/espinosacenterfold-rgb/sing-box#g' \
-                -e 's#https://github.com/${is_sh_repo}/issues#https://github.com/espinosacenterfold-rgb/sing-box/issues#g' \
-                -e 's#https://233boy.com/[^[:space:]"'"'<>)]*#https://github.com/espinosacenterfold-rgb/sing-box#g' \
-                -e 's#https://t.me/tg2333##g' \
-                -e 's#tg2333##g' \
-                -e 's#233boy\.github\.io##g' \
-                -e 's/#233boy-/#/g' \
-                -e 's/by 233boy/by local build/g' \
-                -e 's/author=233boy/author=local-build/g' \
-                -e 's/is_socks_user=233boy/is_socks_user=singbox/g' \
-                -e 's/233boy\.com/example.com/g' \
-                -e 's/233boy/upstream/g' \
-                "$f"
-            fi
-          done
+          repo = "https://github.com/espinosacenterfold-rgb/sing-box"
+          replacements = [
+              ("https://github.com/233boy/sing-box", repo),
+              ("https://t.me/tg2333", ""),
+              ("tg2333", ""),
+              ("233boy.github.io", ""),
+              ("#233boy-", "#"),
+              ("by 233boy", "by local build"),
+              ("author=233boy", "author=local-build"),
+              ("is_socks_user=233boy", "is_socks_user=singbox"),
+              ("233boy.com", "example.com"),
+              ("233boy", "upstream"),
+          ]
 
-          # Ensure the script updates/releases from this repository.
-          if [[ -f install.sh ]]; then
-            sed -i 's#is_sh_repo=\$author/\$is_core#is_sh_repo=espinosacenterfold-rgb/\$is_core#' install.sh
-          fi
-          if [[ -f src/init.sh ]]; then
-            sed -i 's#author=upstream#author=local-build#; s#github=https://github.com/upstream/sing-box#github=https://github.com/espinosacenterfold-rgb/sing-box#' src/init.sh
-          fi
+          url_re = re.compile(r"https://233boy\.com/[^\\s\"'<>)]*")
+          for path in Path('.').rglob('*'):
+              if not path.is_file() or '.git' in path.parts:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              original = text
+              text = url_re.sub(repo, text)
+              for old, new in replacements:
+                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
 
-          # Remove any remaining explicit upstream identity strings from text files.
+          # Make the installer and self-update path point at this repository.
+          p = Path('install.sh')
+          if p.exists():
+              text = p.read_text(encoding='utf-8')
+              text = re.sub(r'is_sh_repo=\$author/\$is_core', 'is_sh_repo=espinosacenterfold-rgb/$is_core', text)
+              p.write_text(text, encoding='utf-8')
+
+          p = Path('src/init.sh')
+          if p.exists():
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('author=upstream', 'author=local-build')
+              text = text.replace('github=https://github.com/upstream/sing-box', f'github={repo}')
+              p.write_text(text, encoding='utf-8')
+
+          readme = Path('README.md')
+          if readme.exists():
+              body = readme.read_text(encoding='utf-8')
+              notice = '> This repository is a modified derivative of the upstream project. Local modifications include branding and repository-link cleanup. Modified 2026-09-15.\n\n'
+              if 'This repository is a modified derivative' not in body:
+                  readme.write_text(notice + body, encoding='utf-8')
+          PY
+
           if grep -RIn --exclude-dir=.git -E '233boy|233boy\.com|tg2333' .; then
             echo 'Upstream branding remains; aborting.'
             exit 1
           fi
 
+          rm -f .sync-trigger
           git config user.name 'espinosacenterfold-rgb'
           git config user.email 'espinosacenterfold@gmail.com'
           git add -A
-          git commit -m 'Import upstream and clean branding' || exit 0
+          git commit -m 'Import upstream and clean branding'
           git push origin main
